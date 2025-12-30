@@ -4,7 +4,7 @@ API design can be difficult, but intentionally defining a clear and complete rep
 
 This tool provides a way to define events and fields, along with a type interface for field types. Protocols designed in the GUI can output YAML, and you can also populate the protocol in the GUI by loading your own  YAML. This tool is for generating type-safe Event Driven Python code and JavaScript as a module with identical type representations built from a single source of defined types.
 
-![Video Title](demo.mp4)
+<video src="demo_small.mp4" controls muted loop playsinline width="480"></video>
 
 
 ## Quick Start
