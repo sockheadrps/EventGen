@@ -1,0 +1,40 @@
+<!-- Events Component Template -->
+<section class="events-section" x-data="eventsComponent()">
+  <div class="section-header">
+    <div class="section-title-group">
+      <button @click="toggleCollapse()" class="collapse-btn">
+        <span class="collapse-chevron" x-text="collapsed ? '▶' : '▼'"></span>
+      </button>
+      <h2 x-text="title"></h2>
+    </div>
+    <button @click="openEventModal()" class="btn btn-primary btn-sm">+ Event</button>
+  </div>
+  <div x-show="!collapsed">
+    <p class="section-desc" x-text="description"></p>
+    <div class="events-list">
+      <template x-for="(event, index) in events" :key="side + '-' + index">
+        <div class="event-item">
+          <div class="event-name" x-text="event.name"></div>
+          <div class="event-meta">
+            <span x-text="event.handler_group || 'default'"></span>
+          </div>
+          <div
+            class="fields-summary"
+            x-text="(event.fields?.length || 0) + ' field' + ((event.fields?.length || 0) !== 1 ? 's' : '')"
+          ></div>
+          <div class="event-actions">
+            <button onclick="window.protocolBuilderInstance.openEventDetail('${side}', ${index})" class="btn btn-primary btn-sm">
+              👁️
+            </button>
+            <button @click.stop="editEvent(index)" class="btn btn-secondary btn-sm">
+              ✏️
+            </button>
+            <button onclick="window.protocolBuilderInstance.deleteEvent('${side}', ${index})" class="btn btn-danger btn-sm">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</section>

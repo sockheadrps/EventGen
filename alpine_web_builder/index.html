@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wsprot Protocol Builder</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Component Scripts -->
+  <script src="components/yaml-generator.js"></script>
+  <script src="components/notifications.js"></script>
+  <script src="components/types.js"></script>
+  <script src="components/events.js"></script>
+</head>
+
+<body>
+  <div x-data="protocolBuilder()" @event-detail-requested.window="handleEventDetailRequest($event.detail)"
+    @events-updated.window="handleEventsUpdate($event.detail)" @open-type-modal.window="openTypeModal()"
+    @edit-type.window="editType($event.detail)" @delete-type.window="deleteType($event.detail)"
+    @open-event-modal.window="openEventModal($event.detail)" @open-field-modal.window="openFieldModal()"
+    @edit-event.window="editEvent($event.detail)">
+    <header>
+      <div class="header-content">
+        <div class="protocol-header-info">
+          <div class="protocol-title">
+            <h1 @click="isEditingProtocol = true" class="clickable-value" x-text="protocol.name || 'New Protocol'"
+              x-show="!isEditingProtocol"></h1>
+            <input x-show="isEditingProtocol" x-model="protocol.name" type="text" class="protocol-name-input"
+              placeholder="Protocol Name" @blur="isEditingProtocol = false"
+              @keydown.enter="isEditingProtocol = false" />
+          </div>
+          <div class="protocol-meta">
+            <div class="protocol-meta-item">
+              <span class="protocol-meta-label">Version:</span>
+              <span @click="isEditingProtocol = true" x-show="!isEditingProtocol"
+                class="protocol-meta-value clickable-value" x-text="protocol.version || '1.0'"></span>
+              <input x-show="isEditingProtocol" x-model="protocol.version" type="text" class="protocol-version-input"
+                placeholder="1.0" @blur="isEditingProtocol = false" @keydown.enter="isEditingProtocol = false" />
+            </div>
+            <div class="protocol-meta-item">
+              <span class="protocol-meta-label">Desc:</span>
+              <span @click="isEditingProtocol = true" x-show="!isEditingProtocol"
+                class="protocol-meta-value clickable-value" x-text="protocol.description || 'No description'"></span>
+              <textarea x-show="isEditingProtocol" x-model="protocol.description" class="protocol-description-input"
+                placeholder="Protocol description" rows="1" @blur="isEditingProtocol = false"
+                @keydown.enter="isEditingProtocol = false"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button @click="openViewSource()" class="btn btn-view-source" title="View Protocol Schemas"
+            :disabled="!hasProtocolContent()">
+            Protocol Schemas
+          </button>
+          <button @click="openImportModal()" class="btn btn-secondary" title="Import YAML">
+            Import YAML
+          </button>
+
+          <button @click="genOptionsModalVisible = true" class="btn btn-primary" title="Generate and view python code"
+            :disabled="!hasProtocolContent()">
+            Generate Code
+          </button>
+          <button @click="helpModalVisible = true" class="btn btn-icon-only btn-secondary" title="Help">
+            ?
+          </button>
+        </div>
+      </div>
+    </header>
+    <main>
+      <!-- Custom Types Component -->
+      <section class="custom-types" x-data="customTypes({ types: protocol.types })"
+        :class="{'section-collapsed': collapsed}">
+        <div class="section-header">
+          <div class="section-title-group" @click="toggleCollapse()">
+            <span class="collapse-chevron" x-text="collapsed ? '▶' : '▼'"></span>
+            <h2>Custom Types</h2>
+            <span class="section-count" x-text="Object.keys(types).length"></span>
+          </div>
+          <!-- Collapsed Preview -->
+          <div x-show="collapsed" class="collapsed-preview">
+            <template x-for="(values, typeName) in types" :key="'pill-' + typeName">
+              <span class="preview-pill"
+                @mouseenter="window.protocolBuilderInstance.showTooltip($event, values.join(', '))"
+                @mouseleave="window.protocolBuilderInstance.hideTooltip()" x-text="typeName"></span>
+            </template>
+          </div>
+          <button @click.stop="openTypeModal()" class="btn btn-primary btn-sm">+ Type</button>
+        </div>
+        <div x-show="!collapsed">
+          <p class="section-desc">Define enums and literals for type-safe fields</p>
+
+          <!-- Types Compact List -->
+          <div class="types-compact-container">
+            <div class="types-compact-list" x-show="Object.keys(types).length > 0">
+              <template x-for="(values, typeName) in types" :key="typeName">
+                <div class="type-compact-item" @click="editType(typeName)">
+                  <div class="type-compact-name" x-text="typeName"></div>
+                  <div class="type-compact-values" x-text="values.length + ' values'"></div>
+                  <div class="type-compact-preview"
+                    x-text="'[' + values.slice(0, 3).join(', ') + (values.length > 3 ? '...' : '') + ']'"></div>
+                </div>
+              </template>
+            </div>
+
+            <div x-show="Object.keys(types).length === 0" class="empty-types">
+              <div class="empty-text">No custom types defined</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature Management -->
+      <section class="features-section">
+        <div class="features-header">
+          <div class="features-title-group">
+            <h2>Features</h2>
+            <span class="section-desc-inline">Organize events into functional groups</span>
+          </div>
+          <div class="feature-tabs">
+            <button class="feature-tab" :class="{'active': currentFeature === null}" @click="selectFeature(null)">
+              Default
+            </button>
+            <template x-for="(feat, name) in protocol.features" :key="name">
+              <div class="feature-tab-wrapper" :class="{'active': currentFeature === name}">
+                <button class="feature-tab-btn" @click="selectFeature(name)" x-text="name"></button>
+                <span class="feature-delete" @click.stop="deleteFeature(name)" title="Delete Feature">&times;</span>
+              </div>
+            </template>
+            <button class="btn-add-feature" @click="addFeature()" title="Add Feature">+</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Client Events Component -->
+      <section class="events-section"
+        x-data="eventsComponent({ events: getCurrentClientEvents(), side: 'client', title: 'Client → Server Events', description: 'Messages sent by client, handled by server' })"
+        :class="{'section-collapsed': clientEventsCollapsed}">
+        <div class="section-header">
+          <div class="section-title-group" onclick="window.protocolBuilderInstance.toggleClientEventsCollapse()">
+            <span class="collapse-chevron" x-text="clientEventsCollapsed ? '▶' : '▼'"></span>
+            <h2 x-text="title"></h2>
+            <span class="section-count" x-text="events.length"></span>
+          </div>
+          <!-- Collapsed Preview -->
+          <div x-show="clientEventsCollapsed" class="collapsed-preview">
+            <template x-for="(event, index) in events" :key="'pill-client-' + index">
+              <span class="preview-pill"
+                @mouseenter="window.protocolBuilderInstance.showTooltip($event, (event.fields || []).map(f => f.name).join(', ') || 'No fields')"
+                @mouseleave="window.protocolBuilderInstance.hideTooltip()" x-text="event.name"></span>
+            </template>
+          </div>
+          <button
+            onclick="event.stopPropagation(); window.protocolBuilderInstance.openEventModal({side: 'client', isNew: true})"
+            class="btn btn-primary btn-sm">+ Event</button>
+        </div>
+        <div x-show="!clientEventsCollapsed">
+          <p class="section-desc" x-text="description"></p>
+          <div class="events-grid">
+            <template x-for="(event, index) in events" :key="side + '-' + index">
+              <div class="event-card" @click="openEventDetail(index)">
+                <div class="event-card-header">
+                  <span class="event-card-name" x-text="event.name"></span>
+                  <span class="event-card-group"
+                    x-text="event.handler_group || window.protocolBuilderInstance?.currentFeature || 'default'"></span>
+                </div>
+                <div class="event-card-body" x-show="event.fields?.length > 0">
+                  <template x-for="(field, fIndex) in (event.fields || []).slice(0, 2)" :key="fIndex">
+                    <div class="event-card-field">
+                      <span class="field-name-mini" x-text="field.name"></span>
+                      <span class="field-type-mini" x-text="field.type"></span>
+                    </div>
+                  </template>
+                  <div x-show="event.fields?.length > 2" class="event-card-more"
+                    x-text="'+ ' + (event.fields.length - 2) + ' more'"></div>
+                </div>
+                <div class="event-card-body" x-show="!event.fields || event.fields.length === 0">
+                  <span class="event-card-empty">No fields defined</span>
+                </div>
+                <div class="event-card-footer">
+                  <span class="event-card-count" x-text="(event.fields?.length || 0) + ' fields'"></span>
+                  <div class="event-card-actions" @click.stop>
+                    <button @click.stop="editEvent(index)" class="btn-icon-sm" title="Edit">✏️</button>
+                    <button @click.stop="deleteEvent(index)" class="btn-icon-sm btn-icon-danger"
+                      title="Delete">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- Server Events Component -->
+      <section class="events-section"
+        x-data="eventsComponent({ events: getCurrentServerEvents(), side: 'server', title: 'Server → Client Events', description: 'Messages sent by server, handled by client' })"
+        :class="{'section-collapsed': serverEventsCollapsed}">
+        <div class="section-header">
+          <div class="section-title-group" onclick="window.protocolBuilderInstance.toggleServerEventsCollapse()">
+            <span class="collapse-chevron" x-text="serverEventsCollapsed ? '▶' : '▼'"></span>
+            <h2 x-text="title"></h2>
+            <span class="section-count" x-text="events.length"></span>
+          </div>
+          <!-- Collapsed Preview -->
+          <div x-show="serverEventsCollapsed" class="collapsed-preview">
+            <template x-for="(event, index) in events" :key="'pill-server-' + index">
+              <span class="preview-pill"
+                @mouseenter="window.protocolBuilderInstance.showTooltip($event, (event.fields || []).map(f => f.name).join(', ') || 'No fields')"
+                @mouseleave="window.protocolBuilderInstance.hideTooltip()" x-text="event.name"></span>
+            </template>
+          </div>
+          <button
+            onclick="event.stopPropagation(); window.protocolBuilderInstance.openEventModal({side: 'server', isNew: true})"
+            class="btn btn-primary btn-sm">+ Event</button>
+        </div>
+        <div x-show="!serverEventsCollapsed">
+          <p class="section-desc" x-text="description"></p>
+          <div class="events-grid">
+            <template x-for="(event, index) in events" :key="side + '-' + index">
+              <div class="event-card" @click="openEventDetail(index)">
+                <div class="event-card-header">
+                  <span class="event-card-name" x-text="event.name"></span>
+                  <span class="event-card-group"
+                    x-text="event.handler_group || window.protocolBuilderInstance?.currentFeature || 'default'"></span>
+                </div>
+                <div class="event-card-body" x-show="event.fields?.length > 0">
+                  <template x-for="(field, fIndex) in (event.fields || []).slice(0, 2)" :key="fIndex">
+                    <div class="event-card-field">
+                      <span class="field-name-mini" x-text="field.name"></span>
+                      <span class="field-type-mini" x-text="field.type"></span>
+                    </div>
+                  </template>
+                  <div x-show="event.fields?.length > 2" class="event-card-more"
+                    x-text="'+ ' + (event.fields.length - 2) + ' more'"></div>
+                </div>
+                <div class="event-card-body" x-show="!event.fields || event.fields.length === 0">
+                  <span class="event-card-empty">No fields defined</span>
+                </div>
+                <div class="event-card-footer">
+                  <span class="event-card-count" x-text="(event.fields?.length || 0) + ' fields'"></span>
+                  <div class="event-card-actions" @click.stop>
+                    <button @click.stop="editEvent(index)" class="btn-icon-sm" title="Edit">✏️</button>
+                    <button @click.stop="deleteEvent(index)" class="btn-icon-sm btn-icon-danger"
+                      title="Delete">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Stats Footer -->
+    <footer class="stats-footer">
+      <div class="stats-content">
+        <span class="stat-item" x-text="Object.keys(protocol.types).length + ' types'"></span>
+        <span class="stat-divider"></span>
+        <span class="stat-item" x-text="protocol.client.length + ' client events'"></span>
+        <span class="stat-divider"></span>
+        <span class="stat-item" x-text="protocol.server.length + ' server events'"></span>
+        <span class="stat-divider"></span>
+        <span class="stat-item"
+          x-text="(protocol.client.reduce((sum, e) => sum + (e.fields?.length || 0), 0) + protocol.server.reduce((sum, e) => sum + (e.fields?.length || 0), 0)) + ' total fields'"></span>
+      </div>
+    </footer>
+
+    <!-- Type Modal -->
+    <div x-show="showTypeModal" x-cloak class="modal" @click.self="closeTypeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 x-text="typeModalTitle"></h3>
+          <span @click="closeTypeModal" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="type-name">Type Name:</label>
+            <input x-model="currentType.name" type="text" id="type-name" placeholder="e.g., RoomAction, Status" />
+          </div>
+          <div class="form-group">
+            <label for="type-values">Allowed Values:</label>
+            <textarea x-model="currentType.valuesText" id="type-values" rows="4" placeholder="Enter one value per line, e.g.:
+join
+leave
+create"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-btn-group">
+            <button @click="closeTypeModal" class="btn btn-secondary">Cancel</button>
+            <button onclick="window.protocolBuilderInstance.saveType()" class="btn btn-primary">Save Type</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field Modal -->
+    <div id="field-modal" class="modal field-modal" style="display: none;" @click.stop>
+      <div class="modal-content styled-modal">
+        <div class="modal-header styled-header">
+          <div class="modal-header-title">
+            <h3 x-text="fieldModalTitle"></h3>
+          </div>
+          <span @click="closeFieldModal" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- Core Field Settings -->
+          <div class="form-section">
+            <div class="form-row">
+              <div class="form-group flex-grow">
+                <label for="field-name" class="form-label">
+                  Field Name
+                  <span class="hint-icon" title="Use snake_case naming, e.g., user_id, message_text">?</span>
+                </label>
+                <input x-model="currentField.name" type="text" id="field-name" class="form-input"
+                  placeholder="field_name" />
+              </div>
+              <div class="form-group">
+                <label for="field-type" class="form-label">Type</label>
+                <select x-model="currentField.type" id="field-type" class="form-select">
+                  <option value="str">str</option>
+                  <option value="int">int</option>
+                  <option value="float">float</option>
+                  <option value="bool">bool</option>
+                  <option value="list[str]">list[str]</option>
+                  <option value="dict[str, Any]">dict[str, Any]</option>
+                  <template x-for="(values, typeName) in protocol.types" :key="'type-' + typeName">
+                    <option :value="typeName" x-text="typeName"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input x-model="currentField.required" type="checkbox" checked class="checkbox-input" />
+                <span class="checkbox-text">Required field</span>
+                <span class="checkbox-hint"
+                  x-text="currentField.required ? '(must be provided)' : '(can be omitted)'"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Optional Settings -->
+          <div class="form-section optional-section">
+            <div class="section-divider">
+              <span>Optional Settings</span>
+            </div>
+
+            <div class="optional-field" :class="{'expanded': fieldDefaultExpanded}">
+              <div class="optional-header" @click="toggleOptional('fieldDefaultExpanded')">
+                <span class="optional-label">Default Value</span>
+                <span class="optional-chevron" x-text="fieldDefaultExpanded ? '−' : '+'"></span>
+              </div>
+              <div x-show="fieldDefaultExpanded" class="optional-content">
+                <!-- Show dropdown for custom types -->
+                <template x-if="protocol.types[currentField.type]">
+                  <select x-model="currentField.default" class="form-select">
+                    <option value="">-- No default --</option>
+                    <template x-for="value in protocol.types[currentField.type]" :key="value">
+                      <option :value="value" x-text="value"></option>
+                    </template>
+                  </select>
+                </template>
+                <!-- Show text input for built-in types -->
+                <template x-if="!protocol.types[currentField.type]">
+                  <input x-model="currentField.default" type="text" id="field-default" class="form-input"
+                    placeholder="e.g., 0, 'hello', []" />
+                </template>
+              </div>
+            </div>
+
+            <div class="optional-field" :class="{'expanded': fieldAliasExpanded}">
+              <div class="optional-header" @click="toggleOptional('fieldAliasExpanded')">
+                <span class="optional-label">Alias (JSON key)</span>
+                <span class="optional-chevron" x-text="fieldAliasExpanded ? '−' : '+'"></span>
+              </div>
+              <div x-show="fieldAliasExpanded" class="optional-content">
+                <input x-model="currentField.alias" type="text" id="field-alias" class="form-input"
+                  placeholder="JSON key name" />
+              </div>
+            </div>
+
+            <div class="optional-field" :class="{'expanded': fieldDescExpanded}">
+              <div class="optional-header" @click="toggleOptional('fieldDescExpanded')">
+                <span class="optional-label">Description</span>
+                <span class="optional-chevron" x-text="fieldDescExpanded ? '−' : '+'"></span>
+              </div>
+              <div x-show="fieldDescExpanded" class="optional-content">
+                <textarea x-model="currentField.description" id="field-description" class="form-textarea" rows="2"
+                  placeholder="Brief description of this field"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer styled-footer">
+          <button @click="closeFieldModal" class="btn btn-secondary">Cancel</button>
+          <button onclick="window.protocolBuilderInstance.saveField()" class="btn btn-primary">Save Field</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div id="event-modal" class="modal event-modal" style="display: none;"
+      onclick="if(event.target === this) window.protocolBuilderInstance.closeEventModal()"
+      x-bind:key="eventModalRefresh">
+      <div class="modal-content styled-modal event-modal-content">
+        <div class="modal-header styled-header">
+          <div class="modal-header-title">
+            <h3 x-text="eventModalTitle"></h3>
+            <span class="modal-header-badge" x-text="editingEventSide"></span>
+          </div>
+          <span onclick="window.protocolBuilderInstance.closeEventModal()" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- Event Details Section -->
+          <div class="form-section">
+            <div class="form-group">
+              <label for="event-name" class="form-label">
+                Event Name
+                <span class="hint-icon" title="Use snake_case naming, e.g., join_room, send_message">?</span>
+              </label>
+              <input x-model="currentEvent.name" type="text" id="event-name" class="form-input" placeholder="event_name"
+                required />
+            </div>
+
+            <!-- Optional Event Settings -->
+            <div class="optional-field" :class="{'expanded': eventGroupExpanded}">
+              <div class="optional-header" @click="toggleOptional('eventGroupExpanded')">
+                <span class="optional-label">Handler Group</span>
+                <span class="optional-chevron" x-text="eventGroupExpanded ? '−' : '+'"></span>
+              </div>
+              <div x-show="eventGroupExpanded" class="optional-content">
+                <input x-model="currentEvent.handler_group" type="text" id="event-group" class="form-input"
+                  placeholder="e.g., room, message" />
+              </div>
+            </div>
+
+            <div class="optional-field" :class="{'expanded': eventDescExpanded}">
+              <div class="optional-header" @click="toggleOptional('eventDescExpanded')">
+                <span class="optional-label">Description</span>
+                <span class="optional-chevron" x-text="eventDescExpanded ? '−' : '+'"></span>
+              </div>
+              <div x-show="eventDescExpanded" class="optional-content">
+                <textarea x-model="currentEvent.description" id="event-description" class="form-textarea" rows="2"
+                  placeholder="Brief description"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Copy Fields Section (for new events) -->
+          <div x-show="isNewEvent" class="copy-fields-section styled-copy-section">
+            <div class="copy-fields-header">
+              <span class="copy-icon">📋</span>
+              <span>Copy fields from existing event</span>
+            </div>
+            <div class="copy-fields-controls">
+              <select x-model="copyFromEvent" id="copy-from-event" class="form-select">
+                <option value="">-- Select event --</option>
+                <template x-for="(event, index) in getEventsForCopy()" :key="'copy-' + index">
+                  <option :value="index" x-text="event.name + ' (' + (event.fields?.length || 0) + ' fields)'"></option>
+                </template>
+              </select>
+              <button x-show="copyFromEvent !== ''" @click="copyFieldsFromEvent" class="btn btn-secondary btn-sm">
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- Fields Section -->
+          <div class="form-section fields-section-styled">
+            <div class="section-header-styled">
+              <h4>Event Fields</h4>
+              <span class="field-count-badge" x-text="currentEvent.fields.length"></span>
+            </div>
+
+            <div class="fields-container">
+              <template x-for="(field, index) in currentEvent.fields" :key="'field-' + index + '-' + eventModalRefresh">
+                <div class="field-card-mini">
+                  <div class="field-card-mini-left">
+                    <span class="field-card-mini-name" x-text="field.name"></span>
+                    <div class="field-card-mini-badges">
+                      <span class="badge-type" x-text="field.type"></span>
+                      <span class="badge-req" :class="field.required !== false ? 'required' : 'optional'"
+                        x-text="field.required !== false ? 'req' : 'opt'"></span>
+                      <span x-show="field.default !== undefined && field.default !== ''" class="badge-default"
+                        x-text="'= ' + field.default"></span>
+                    </div>
+                  </div>
+                  <div class="field-card-mini-actions">
+                    <button @click="editField(index)" class="btn-icon" title="Edit">✏️</button>
+                    <button @click="deleteField(index)" class="btn-icon btn-icon-danger" title="Delete">🗑️</button>
+                  </div>
+                </div>
+              </template>
+
+              <div x-show="currentEvent.fields.length === 0" class="empty-fields-styled">
+                <span>No fields yet</span>
+              </div>
+
+              <button onclick="window.protocolBuilderInstance.openFieldModal()" class="add-field-btn">
+                <span class="add-field-icon">+</span>
+                <span>Add Field</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer styled-footer">
+          <span class="footer-info"
+            x-text="currentEvent.fields.length + ' field' + (currentEvent.fields.length !== 1 ? 's' : '')"></span>
+          <div class="footer-actions">
+            <button onclick="window.protocolBuilderInstance.closeEventModal()" class="btn btn-secondary">Cancel</button>
+            <button onclick="window.protocolBuilderInstance.saveEvent()" class="btn btn-primary">Save Event</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Detail Overlay -->
+    <div x-show="showEventDetail" x-cloak class="event-detail-overlay" @click.self="closeEventDetail">
+      <div class="event-detail-content">
+        <div class="event-detail-header">
+          <div class="event-detail-title">
+            <h3 x-text="detailEvent?.name || ''"></h3>
+            <span class="event-detail-badge"
+              x-text="detailEvent?.handler_group || window.protocolBuilderInstance?.currentFeature || 'default'"></span>
+          </div>
+          <span @click="closeEventDetail" class="modal-close">&times;</span>
+        </div>
+        <div class="event-detail-body">
+          <!-- Event Description -->
+          <div class="event-detail-description" x-show="detailEvent?.description">
+            <span x-text="detailEvent?.description"></span>
+          </div>
+
+          <!-- Fields Section -->
+          <div class="event-detail-section">
+            <div class="event-detail-section-header">
+              <h4>Fields</h4>
+              <span class="field-count" x-text="'(' + (detailEvent?.fields?.length || 0) + ')'"></span>
+            </div>
+
+            <div class="event-detail-fields" x-show="(detailEvent?.fields || []).length > 0">
+              <template x-for="field in (detailEvent?.fields || [])" :key="'detail-' + field.name">
+                <div class="event-detail-field-card">
+                  <div class="field-card-header">
+                    <span class="field-card-name" x-text="field.name"></span>
+                    <div class="field-card-badges">
+                      <span class="field-type-badge" x-text="field.type"></span>
+                      <span class="field-req-badge" :class="field.required !== false ? 'required' : 'optional'"
+                        x-text="field.required !== false ? 'required' : 'optional'"></span>
+                    </div>
+                  </div>
+                  <div class="field-card-details"
+                    x-show="field.alias || field.default !== undefined || field.description">
+                    <div class="field-detail-row" x-show="field.alias">
+                      <span class="field-detail-label">Alias:</span>
+                      <span class="field-detail-value" x-text="field.alias"></span>
+                    </div>
+                    <div class="field-detail-row" x-show="field.default !== undefined && field.default !== ''">
+                      <span class="field-detail-label">Default:</span>
+                      <code class="field-detail-value" x-text="field.default"></code>
+                    </div>
+                    <div class="field-detail-row" x-show="field.description">
+                      <span class="field-detail-label">Info:</span>
+                      <span class="field-detail-value" x-text="field.description"></span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="event-detail-empty" x-show="(detailEvent?.fields || []).length === 0">
+              <span>No fields defined for this event</span>
+            </div>
+          </div>
+
+          <!-- JSON Preview Section -->
+          <div class="event-detail-section">
+            <div class="event-detail-section-header">
+              <h4>Sample JSON Message</h4>
+            </div>
+
+            <!-- Interactive Value Selectors -->
+            <div class="sample-value-selectors"
+              x-show="(detailEvent?.fields || []).filter(f => isCustomType(f.type)).length > 0">
+              <template x-for="field in (detailEvent?.fields || []).filter(f => isCustomType(f.type))"
+                :key="field.name">
+                <div class="sample-value-row">
+                  <label class="sample-value-label" x-text="field.alias || field.name"></label>
+                  <select class="sample-value-select" :value="detailSampleValues[field.name]"
+                    @change="updateDetailSampleValue(field.name, $event.target.value)">
+                    <template x-for="val in getTypeValues(field.type)" :key="val">
+                      <option :value="val" x-text="val" :selected="detailSampleValues[field.name] === val"></option>
+                    </template>
+                  </select>
+                </div>
+              </template>
+            </div>
+
+            <pre class="json-preview-formatted"><code x-text="detailEventJson"></code></pre>
+          </div>
+        </div>
+        <div class="event-detail-actions">
+          <button @click="editEventFromDetail" class="btn btn-primary">Edit Event</button>
+          <button @click="deleteEventFromDetail" class="btn btn-danger">Delete Event</button>
+          <button @click="closeEventDetail" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Source Modal -->
+    <div x-show="viewSourceModalVisible" x-cloak class="modal actions-modal"
+      @click.self="viewSourceModalVisible = false">
+      <div class="modal-content actions-modal-content">
+        <div class="modal-header">
+          <h3>Protocol Definition</h3>
+          <span @click="viewSourceModalVisible = false" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="view-source-header">
+            <div class="toggle-switch">
+              <div class="toggle-option" :class="{'active': viewSourceMode === 'yaml'}"
+                @click="viewSourceMode = 'yaml'; updateSourceView()">YAML</div>
+              <div class="toggle-option" :class="{'active': viewSourceMode === 'js'}"
+                @click="viewSourceMode = 'js'; updateSourceView()">JavaScript</div>
+            </div>
+            <button @click="copySource" class="btn btn-secondary btn-sm">Copy to Clipboard</button>
+          </div>
+
+          <textarea x-model="sourceOutput" class="yaml-textarea modal-yaml-textarea" readonly rows="20"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div x-show="importModalVisible" x-cloak class="modal actions-modal" @click.self="importModalVisible = false">
+      <div class="modal-content actions-modal-content">
+        <div class="modal-header">
+          <h3>Import Protocol</h3>
+          <span @click="importModalVisible = false" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <h4 style="margin-bottom: 0.5rem">Paste YAML to Load</h4>
+          <textarea x-model="importInput" class="yaml-textarea modal-yaml-textarea" rows="12"
+            placeholder="Paste your YAML protocol definition here..."></textarea>
+          <div class="action-buttons" style="margin-top: 1rem; justify-content: flex-end;">
+            <button @click="loadFromYAML()" class="btn btn-primary">Import YAML</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div x-show="helpModalVisible" x-cloak class="modal" @click.self="helpModalVisible = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>About wsprot Protocol Builder</h3>
+          <span @click="helpModalVisible = false" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body help-content">
+          <p>This tool allows you to visually design WebSocket protocols and generate strucuted event schemas for Python
+            and JavaScript.</p>
+
+          <ul>
+            <li><strong>Custom Types:</strong> Define Enums and specific data structures.</li>
+            <li><strong>Client → Server Events:</strong> Messages sent by the Client.</li>
+            <li><strong>Server → Client Events:</strong> Messages sent by the Server.</li>
+          </ul>
+
+          <p>Once designed, click <strong>Generate Code</strong> to create a complete project skeleton.</p>
+
+          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <h4>Need a starting point?</h4>
+            <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;">Load an example protocol to see
+              how it works.</p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button @click="loadExampleSimple()" class="btn btn-secondary">Load Simple Example (Chat)</button>
+              <button @click="loadExampleComplex()" class="btn btn-primary">Load Complex Example (RPG)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generation Options Modal -->
+    <div x-show="genOptionsModalVisible" x-cloak class="modal actions-modal"
+      @click.self="genOptionsModalVisible = false">
+      <div class="modal-content actions-modal-content">
+        <div class="modal-header">
+          <h3>Generation Options</h3>
+          <span @click="genOptionsModalVisible = false" class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="modal-section">
+            <p style="margin-bottom: 1rem; color: var(--text-muted);">Select the components you want to generate:</p>
+
+            <div class="options-grid">
+              <!-- Python Server -->
+              <label class="checkbox-card" :class="{'disabled': !genOptions.includeServer && false}">
+                <input type="checkbox" x-model="genOptions.includeServer">
+                <div class="checkbox-content">
+                  <span class="checkbox-title">Python Server</span>
+                  <span class="checkbox-desc">FastAPI server with Pydantic models & handlers</span>
+                </div>
+              </label>
+
+              <!-- Python Client -->
+              <label class="checkbox-card" :class="{'disabled': !genOptions.includeClient && false}">
+                <input type="checkbox" x-model="genOptions.includeClient">
+                <div class="checkbox-content">
+                  <span class="checkbox-title">Python Client</span>
+                  <span class="checkbox-desc">Asyncio client SDK</span>
+                </div>
+              </label>
+
+              <!-- JS Web Client -->
+              <label class="checkbox-card">
+                <input type="checkbox" x-model="genOptions.includeWebClient">
+                <div class="checkbox-content">
+                  <span class="checkbox-title">JS Web Client</span>
+                  <span class="checkbox-desc">Vanilla JavaScript SDK</span>
+                </div>
+              </label>
+
+              <!-- Nested Integration Option -->
+              <div class="nested-option" x-show="genOptions.includeWebClient" x-transition>
+                <label class="checkbox-card">
+                  <input type="checkbox" x-model="genOptions.integrateWebClient">
+                  <div class="checkbox-content">
+                    <span class="checkbox-title">Integrate into Server</span>
+                    <span class="checkbox-desc">Generate directly into <code>server/static</code> &
+                      <code>server/templates</code></span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="genOptionsModalVisible = false" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmGenerateCode()" class="btn btn-primary">
+            <i class="fa-solid fa-code"></i> Generate
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- End of x-data wrapper -->
+
+  <script src="script.js"></script>
+</body>
+
+</html>

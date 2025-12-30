@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol Code Viewer</title>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Alpine Plugins -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- PrismJS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary-color: #3b82f6;
+            --border-color: #334155;
+            --sidebar-width: 300px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0.75rem 0.75rem;
+            /* Reduced padding */
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .sidebar-title {
+            font-weight: 600;
+            font-size: 1rem;
+            /* Slightly smaller font */
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            /* Prevent wrapping */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            /* Allow flex item to shrink below content size */
+        }
+
+        .back-btn {
+            color: var(--text-muted);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin-right: 0.25rem;
+            background: transparent;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            color: var(--text-color);
+        }
+
+        .file-tree {
+            padding: 0.5rem;
+        }
+
+        .tree-item {
+            cursor: pointer;
+            padding: 0.4rem 0.5rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            margin-bottom: 2px;
+        }
+
+        .tree-item:hover {
+            background-color: var(--bg-tertiary);
+            color: var(--text-color);
+        }
+
+        .tree-item.active {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: var(--primary-color);
+        }
+
+        .folder-content {
+            padding-left: 1.2rem;
+            border-left: 1px solid var(--border-color);
+            margin-left: 0.8rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .code-header {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .code-container {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        pre {
+            margin: 0 !important;
+            min-height: 100%;
+            border-radius: 0 !important;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 14px !important;
+        }
+
+        /* Utility */
+        .icon-folder {
+            color: #fbbf24;
+        }
+
+        .icon-python {
+            color: #3b82f6;
+        }
+
+        .icon-file {
+            color: #94a3b8;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--bg-tertiary);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .viewer-modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .viewer-modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .viewer-modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .viewer-modal-body {
+            padding: 1.5rem;
+        }
+
+        .viewer-modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .checkbox-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .checkbox-item input {
+            margin-top: 0.25rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+    </style>
+</head>
+
+<body x-data="codeViewer()" x-init="init()">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">
+                <a href="/" class="back-btn" title="Back to Builder">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <span>Generated Code</span>
+            </div>
+            <button @click="showDownloadModal = true" class="btn btn-primary"
+                style="padding: 0.3rem 0.6rem; font-size: 0.8rem; white-space: nowrap;">
+                <i class="fa-solid fa-download"></i> Download
+            </button>
+        </div>
+
+        <div class="file-tree">
+            <template x-if="loading">
+                <div class="tree-item">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+                </div>
+            </template>
+
+            <template x-for="item in fileStructure" :key="item.path || item.name">
+                <div x-data="{ expanded: true }">
+                    <!-- Directory Level 1 -->
+                    <template x-if="item.type === 'directory'">
+                        <div>
+                            <div class="tree-item" @click="expanded = !expanded">
+                                <i class="fa-solid"
+                                    :class="expanded ? 'fa-folder-open icon-folder' : 'fa-folder icon-folder'"></i>
+                                <span x-text="item.name"></span>
+                            </div>
+                            <div class="folder-content" x-show="expanded" x-collapse>
+                                <template x-for="child in item.children" :key="child.path || child.name">
+                                    <div x-data="{ childExpanded: false }">
+                                        <!-- Directory Level 2 (e.g., protocol/) -->
+                                        <template x-if="child.type === 'directory'">
+                                            <div>
+                                                <div class="tree-item" @click="childExpanded = !childExpanded">
+                                                    <i class="fa-solid"
+                                                        :class="childExpanded ? 'fa-folder-open icon-folder' : 'fa-folder icon-folder'"></i>
+                                                    <span x-text="child.name"></span>
+                                                </div>
+                                                <div class="folder-content" x-show="childExpanded" x-collapse>
+                                                    <template x-for="grandchild in child.children"
+                                                        :key="grandchild.path || grandchild.name">
+                                                        <div>
+                                                            <!-- Level 3 Directory (e.g. server/static/js) -->
+                                                            <template x-if="grandchild.type === 'directory'">
+                                                                <div x-data="{ grandChildExpanded: false }">
+                                                                    <div class="tree-item"
+                                                                        @click="grandChildExpanded = !grandChildExpanded">
+                                                                        <i class="fa-solid"
+                                                                            :class="grandChildExpanded ? 'fa-folder-open icon-folder' : 'fa-folder icon-folder'"></i>
+                                                                        <span x-text="grandchild.name"></span>
+                                                                    </div>
+                                                                    <div class="folder-content"
+                                                                        x-show="grandChildExpanded" x-collapse>
+                                                                        <!-- Level 4 File Loop -->
+                                                                        <template
+                                                                            x-for="greatGrandchild in grandchild.children"
+                                                                            :key="greatGrandchild.path || greatGrandchild.name">
+                                                                            <div class="tree-item"
+                                                                                :class="{ 'active': selectedPath === greatGrandchild.path }"
+                                                                                @click="selectFile(greatGrandchild)">
+                                                                                <i
+                                                                                    class="fa-regular fa-file-code icon-js"></i>
+                                                                                <span
+                                                                                    x-text="greatGrandchild.name"></span>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+
+                                                            <!-- Level 3 File (e.g. server/models/__init__.py) -->
+                                                            <template x-if="grandchild.type !== 'directory'">
+                                                                <div class="tree-item"
+                                                                    :class="{ 'active': selectedPath === grandchild.path }"
+                                                                    @click="selectFile(grandchild)">
+                                                                    <i class="fa-regular fa-file-code icon-python"></i>
+                                                                    <span x-text="grandchild.name"></span>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <!-- File Level 2 -->
+                                        <template x-if="child.type === 'file'">
+                                            <div class="tree-item" :class="{ 'active': selectedPath === child.path }"
+                                                @click="selectFile(child)">
+                                                <i class="fa-regular fa-file-code icon-python"></i>
+                                                <span x-text="child.name"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Root File (if any) -->
+                    <template x-if="item.type === 'file'">
+                        <div class="tree-item" :class="{ 'active': selectedPath === item.path }"
+                            @click="selectFile(item)">
+                            <i class="fa-regular fa-file-code icon-python"></i>
+                            <span x-text="item.name"></span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="code-header">
+            <span class="file-path" x-text="selectedPath || 'Select a file to view'"></span>
+            <!-- Could add Copy button here -->
+        </div>
+
+        <div class="code-container">
+            <div x-show="!selectedPath" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                <i class="fa-regular fa-file-code" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                <p>Select a file from the sidebar to view source</p>
+            </div>
+
+            <div x-show="selectedPath">
+                <pre><code id="code-block" class="language-python"></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Modal -->
+    <div x-show="showDownloadModal" class="modal-overlay" style="display: none;" x-transition.opacity
+        :style="{ display: showDownloadModal ? 'flex' : 'none' }">
+        <div class="viewer-modal">
+            <div class="viewer-modal-header">
+                <h3>Download Generated Code</h3>
+                <button @click="showDownloadModal = false" class="close-btn">&times;</button>
+            </div>
+            <div class="viewer-modal-body">
+                <p>Select components to include in the ZIP file:</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" x-model="downloadTargets" value="server">
+                        <span class="checkbox-label">
+                            <strong>Python Server</strong>
+                            <small class="text-muted">Pydantic models, event dispatcher, handlers</small>
+                        </span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" x-model="downloadTargets" value="client">
+                        <span class="checkbox-label">
+                            <strong>Python Client</strong>
+                            <small class="text-muted">Client-side Pydantic models (for using Python client)</small>
+                        </span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" x-model="downloadTargets" value="webclient">
+                        <span class="checkbox-label">
+                            <strong>JS Web Client</strong>
+                            <small class="text-muted">Vanilla JS SDK (client.js)</small>
+                        </span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" x-model="downloadTargets" value="protocol.yaml">
+                        <span class="checkbox-label">
+                            <strong>Protocol YAML</strong>
+                            <small class="text-muted">Source definition file</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="viewer-modal-footer">
+                <button @click="showDownloadModal = false" class="btn btn-outline"
+                    style="color:white; border-color: #475569;">Cancel</button>
+                <button @click="downloadZip()" class="btn btn-primary">
+                    <i class="fa-solid fa-download"></i> Download ZIP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function codeViewer() {
+            return {
+                sessionId: '',
+                fileStructure: [],
+                loading: true,
+                selectedPath: null,
+                showDownloadModal: false,
+                downloadTargets: ['server', 'client', 'webclient'],
+
+                async init() {
+                    // Get session from URL
+                    const params = new URLSearchParams(window.location.search);
+                    this.sessionId = params.get('session');
+
+                    if (!this.sessionId) {
+                        alert('No session ID found!');
+                        return;
+                    }
+
+                    await this.fetchStructure();
+                },
+
+                async fetchStructure() {
+                    try {
+                        const res = await fetch(`/api/session/${this.sessionId}`);
+                        const data = await res.json();
+                        this.fileStructure = data.files;
+                        this.loading = false;
+                    } catch (err) {
+                        console.error('Error fetching structure:', err);
+                        alert('Failed to load file structure');
+                    }
+                },
+
+                async selectFile(file) {
+                    if (file.type !== 'file') return;
+
+                    this.selectedPath = file.path;
+
+                    try {
+                        const res = await fetch(`/api/session/${this.sessionId}/file?path=${encodeURIComponent(file.path)}`);
+                        const data = await res.json();
+
+                        // Update code block
+                        const codeBlock = document.getElementById('code-block');
+                        codeBlock.textContent = data.content;
+
+                        // Re-highlight
+                        Prism.highlightElement(codeBlock);
+                    } catch (err) {
+                        console.error('Error fetching file:', err);
+                        alert('Failed to load file content');
+                    }
+                },
+
+                downloadZip() {
+                    if (this.downloadTargets.length === 0) {
+                        alert('Please select at least one component to download.');
+                        return;
+                    }
+
+                    const targets = this.downloadTargets.join(',');
+                    // Trigger download by navigation
+                    window.location.href = `/api/download/${this.sessionId}?targets=${targets}`;
+                    this.showDownloadModal = false;
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,263 @@
+name: RPGProtocol
+version: "2.0"
+description: Full-featured RPG multiplayer protocol with modular features
+
+types:
+  SessionAction:
+    - create
+    - join
+    - leave
+    - close
+  PartyAction:
+    - invite
+    - accept
+    - kick
+    - promote
+  PlayerStatus:
+    - online
+    - offline
+    - in_combat
+    - idle
+  PlayerRole:
+    - leader
+    - member
+  ItemRarity:
+    - common
+    - uncommon
+    - rare
+    - epic
+    - legendary
+  InventoryAction:
+    - add
+    - remove
+    - equip
+    - unequip
+  EquipmentSlot:
+    - head
+    - chest
+    - legs
+    - weapon
+    - offhand
+  CombatAction:
+    - attack
+    - defend
+    - cast_spell
+    - flee
+  DamageType:
+    - physical
+    - fire
+    - ice
+    - lightning
+    - poison
+  SpellSchool:
+    - fire
+    - frost
+    - arcane
+    - nature
+    - shadow
+  ChatChannel:
+    - global
+    - party
+    - whisper
+  QuestStatus:
+    - available
+    - accepted
+    - completed
+    - failed
+  Difficulty:
+    - easy
+    - normal
+    - hard
+    - nightmare
+  ErrorCode:
+    - invalid_action
+    - unauthorized
+    - not_found
+    - cooldown
+    - server_error
+
+features:
+  Session:
+    client:
+      - name: session_action
+        description: Create, join, leave, or close a game session
+        fields:
+          - name: action
+            type: SessionAction
+          - name: session_id
+            type: str
+            required: false
+            alias: sessionId
+          - name: difficulty
+            type: Difficulty
+            required: false
+      - name: toggle_ready
+        description: Toggle ready state
+        fields:
+          - name: ready
+            type: bool
+    server:
+      - name: session_update
+        description: Session state changed
+        fields:
+          - name: session_id
+            type: str
+            alias: sessionId
+          - name: players
+            type: list[str]
+          - name: difficulty
+            type: Difficulty
+
+  Party:
+    client:
+      - name: party_action
+        description: Manage party membership
+        fields:
+          - name: action
+            type: PartyAction
+          - name: target_player
+            type: str
+            alias: targetPlayer
+    server:
+      - name: party_update
+        description: Party composition changed
+        fields:
+          - name: leader
+            type: str
+          - name: members
+            type: list[str]
+      - name: player_status
+        description: Player status update
+        fields:
+          - name: player
+            type: str
+          - name: status
+            type: PlayerStatus
+
+  Inventory:
+    client:
+      - name: inventory_action
+        description: Modify inventory or equipment
+        fields:
+          - name: action
+            type: InventoryAction
+          - name: item_id
+            type: str
+            alias: itemId
+          - name: slot
+            type: EquipmentSlot
+            required: false
+    server:
+      - name: inventory_update
+        description: Inventory changed
+        fields:
+          - name: item_id
+            type: str
+            alias: itemId
+          - name: rarity
+            type: ItemRarity
+          - name: equipped
+            type: bool
+
+  Combat:
+    client:
+      - name: combat_action
+        description: Perform a combat action
+        fields:
+          - name: action
+            type: CombatAction
+          - name: target_id
+            type: str
+            alias: targetId
+          - name: spell_school
+            type: SpellSchool
+            required: false
+            alias: spellSchool
+    server:
+      - name: combat_result
+        description: Result of a combat action
+        fields:
+          - name: source
+            type: str
+          - name: target
+            type: str
+          - name: damage
+            type: int
+          - name: damage_type
+            type: DamageType
+            alias: damageType
+
+  Chat:
+    client:
+      - name: send_chat
+        description: Send a chat message
+        fields:
+          - name: channel
+            type: ChatChannel
+          - name: message
+            type: str
+          - name: target_player
+            type: str
+            required: false
+            alias: targetPlayer
+    server:
+      - name: chat_message
+        description: Incoming chat message
+        fields:
+          - name: channel
+            type: ChatChannel
+          - name: sender
+            type: str
+          - name: message
+            type: str
+          - name: timestamp
+            type: int
+
+  Quest:
+    client:
+      - name: quest_action
+        description: Accept or complete a quest
+        fields:
+          - name: quest_id
+            type: str
+            alias: questId
+          - name: status
+            type: QuestStatus
+    server:
+      - name: quest_update
+        description: Quest status changed
+        fields:
+          - name: quest_id
+            type: str
+            alias: questId
+          - name: status
+            type: QuestStatus
+
+client:
+  - name: ping
+    description: Ping server for latency check
+    fields:
+      - name: timestamp
+        type: int
+  - name: request_player_info
+    description: Request information about a player
+    fields:
+      - name: player
+        type: str
+
+server:
+  - name: pong
+    description: Ping response
+    fields:
+      - name: timestamp
+        type: int
+  - name: error
+    description: Error response
+    fields:
+      - name: code
+        type: ErrorCode
+      - name: message
+        type: str
+      - name: retryable
+        type: bool
+        required: false

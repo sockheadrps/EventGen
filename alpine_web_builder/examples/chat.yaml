@@ -1,0 +1,75 @@
+name: Chat
+version: "1.0"
+description: Simple chat protocol demonstrating the features architecture
+
+types:
+  RoomId:
+    - general
+    - random
+    - support
+  MessageType:
+    - text
+    - image
+    - system
+
+features:
+  Chat:
+    client:
+      - name: join_room
+        description: Join a chat room
+        fields:
+          - name: room_id
+            type: RoomId
+      - name: leave_room
+        description: Leave current room
+        fields:
+          - name: room_id
+            type: RoomId
+      - name: send_message
+        description: Send a chat message
+        fields:
+          - name: room_id
+            type: RoomId
+          - name: content
+            type: str
+          - name: message_type
+            type: MessageType
+            required: false
+    server:
+      - name: room_joined
+        description: Confirmation of room join
+        fields:
+          - name: room_id
+            type: RoomId
+          - name: members
+            type: list[str]
+      - name: room_left
+        description: User left room
+        fields:
+          - name: room_id
+            type: RoomId
+      - name: message_received
+        description: New message from another user
+        fields:
+          - name: room_id
+            type: RoomId
+          - name: content
+            type: str
+          - name: sender
+            type: str
+          - name: message_type
+            type: MessageType
+
+client:
+  - name: ping
+    description: Heartbeat to keep connection alive
+    fields:
+      - name: timestamp
+        type: int
+
+server:
+  - name: pong
+    description: Heartbeat response
+    fields:
+      - name: timestamp
+        type: int

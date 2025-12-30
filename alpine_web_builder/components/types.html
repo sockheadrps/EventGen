@@ -1,0 +1,37 @@
+<!-- Custom Types Component Template -->
+<section class="custom-types" x-data="customTypes()">
+  <div class="section-header">
+    <div class="section-title-group">
+      <button @click="toggleCollapse()" class="collapse-btn">
+        <span class="collapse-chevron" x-text="collapsed ? '▶' : '▼'"></span>
+      </button>
+      <h2>Custom Types</h2>
+    </div>
+    <button @click="openTypeModal()" class="btn btn-secondary btn-sm">+</button>
+  </div>
+  <div x-show="!collapsed">
+    <p class="section-desc">Define enums and literals for type-safe fields</p>
+
+    <!-- Types Compact List -->
+    <div class="types-compact-container">
+      <div class="types-compact-list" x-show="Object.keys(types).length > 0">
+        <template x-for="(values, typeName) in types" :key="typeName">
+          <div class="type-compact-item" @click="editType(typeName)">
+            <div class="type-compact-name" x-text="typeName"></div>
+            <div class="type-compact-values" x-text="values.length + ' values'"></div>
+            <div
+              class="type-compact-preview"
+              x-text="'[' + values.slice(0, 3).join(', ') + (values.length > 3 ? '...' : '') + ']'"
+            ></div>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="Object.keys(types).length === 0" class="empty-types">
+        <div class="empty-text">No custom types defined</div>
+        <button @click="openTypeModal()" class="btn btn-secondary btn-sm">+ Add First Type</button>
+      </div>
+    </div>
+  </div>
+</section>
+
