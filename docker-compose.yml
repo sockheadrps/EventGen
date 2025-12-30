@@ -1,0 +1,11 @@
+services:
+  fastapi-app:
+    build: .
+    container_name: fastapi-server
+    restart: unless-stopped
+    networks:
+      - nginx-proxy-network
+
+networks:
+  nginx-proxy-network:
+    external: true
