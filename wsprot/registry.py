@@ -1,5 +1,5 @@
 """
-Event decorator and registry system for WebSocket handlers.
+Event decorator and registry system for message handlers.
 
 This module provides:
 - @on_event decorator for registering handler methods
@@ -85,7 +85,7 @@ class EventRegistry:
 
 class HandlerBase:
     """
-    Base class for WebSocket event handlers.
+    Base class for Event handlers.
     
     Subclass this and use @on_event decorators to define handlers:
     

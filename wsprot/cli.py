@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
         prog="wsprot",
-        description="Schema-first WebSocket protocol code generator",
+        description="Schema-first Event specification and code generator",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     

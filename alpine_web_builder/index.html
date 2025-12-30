@@ -58,7 +58,7 @@
             Import YAML
           </button>
 
-          <button @click="genOptionsModalVisible = true" class="btn btn-primary" title="Generate and view python code"
+          <button @click="genOptionsModalVisible = true" class="btn btn-primary" title="Generate and view code"
             :disabled="!hasProtocolContent()">
             Generate Code
           </button>
@@ -135,7 +135,7 @@
 
       <!-- Client Events Component -->
       <section class="events-section"
-        x-data="eventsComponent({ events: getCurrentClientEvents(), side: 'client', title: 'Client → Server Events', description: 'Messages sent by client, handled by server' })"
+        x-data="eventsComponent({ events: getCurrentClientEvents(), side: 'client', title: 'Client Events', description: 'Client → Server' })"
         :class="{'section-collapsed': clientEventsCollapsed}">
         <div class="section-header">
           <div class="section-title-group" onclick="window.protocolBuilderInstance.toggleClientEventsCollapse()">
@@ -195,7 +195,7 @@
 
       <!-- Server Events Component -->
       <section class="events-section"
-        x-data="eventsComponent({ events: getCurrentServerEvents(), side: 'server', title: 'Server → Client Events', description: 'Messages sent by server, handled by client' })"
+        x-data="eventsComponent({ events: getCurrentServerEvents(), side: 'server', title: 'Server Events', description: 'Server → Client' })"
         :class="{'section-collapsed': serverEventsCollapsed}">
         <div class="section-header">
           <div class="section-title-group" onclick="window.protocolBuilderInstance.toggleServerEventsCollapse()">
@@ -661,7 +661,7 @@ create"></textarea>
           <span @click="helpModalVisible = false" class="modal-close">&times;</span>
         </div>
         <div class="modal-body help-content">
-          <p>This tool allows you to visually design WebSocket protocols and generate strucuted event schemas for Python
+          <p>This tool allows you to visually design Event protocols and generate structured event schemas for Python
             and JavaScript.</p>
 
           <ul>

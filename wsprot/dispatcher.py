@@ -1,5 +1,5 @@
 """
-Validated dispatcher for WebSocket message routing.
+Validated dispatcher for message routing.
 
 This module provides a Dispatcher class that:
 - Parses incoming JSON messages
@@ -56,7 +56,7 @@ T = TypeVar("T", bound=BaseModel)
 
 class Dispatcher:
     """
-    Dispatches validated WebSocket messages to handler methods.
+    Dispatches validated messages to handler methods.
     
     Usage:
         # Create dispatcher with a discriminated union type and handler

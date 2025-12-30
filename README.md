@@ -22,7 +22,7 @@ Open **http://localhost:8000**.
 
 1. Add **Types** (enums like `RoomId`, `MessageType`)
 2. Define **Features** (groups of related events, e.g. `Chat`, `Game`)
-3. Each feature has **Client Events** (browser → server) and **Server Events** (server → browser)
+3. Each feature has **Client Events** (client → server) and **Server Events** (server → client)
 
 ### 3. Generate & Download
 
@@ -55,71 +55,70 @@ wsprot_export/
 └── protocol.yaml         # Original definition
 ```
 
-### Python Server (FastAPI)
+### Python Server (Generic)
 
-1. Copy the `server/` folder into your project.
-2. **Edit `handlers.py` directly** to implement your logic:
-
-```python
-# server/handlers.py (edit this file!)
-from .models import JoinRoom, Events
-from .events import on_event
-
-class ChatHandler:
-    def __init__(self, ws):
-        self.ws = ws  # Add WebSocket reference
-    
-    @on_event(Events.Chat.JOIN_ROOM)
-    async def chat_join_room(self, message: JoinRoom):
-        # Implement your logic here
-        print(f"User joining room: {message.room_id}")
-        await self.ws.send_json({
-            "type": Events.Chat.ROOM_JOINED,
-            "room_id": message.room_id
-        })
-```
-
-3. Create your FastAPI entry point:
+The generated code is framework-agnostic. You just need to feed data to the dispatcher:
 
 ```python
 # main.py
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import asyncio
 from server.handlers import ChatHandler
-from server.events import ClientDispatcher
+from server.events import ClientDispatcher, Events
+from server.models import JoinRoom
 
-app = FastAPI()
+class MyHandler(ChatHandler):
+    # 1. Access your transport (e.g. WebSocket, Queue, etc)
+    def __init__(self, transport):
+        self.transport = transport
 
-@app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    await ws.accept()
-    handler = ChatHandler(ws)
+    # 2. Implement handlers
+    @on_event(Events.Chat.JOIN_ROOM)
+    async def chat_join_room(self, message: JoinRoom):
+        print(f"User joining room: {message.room_id}")
+        # Reply using your transport
+        await self.transport.send({
+            "type": Events.Chat.ROOM_JOINED,
+            "room_id": message.room_id
+        })
+
+# 3. dispatch messages from anywhere
+async def main():
+    # ... setup your connection ...
+    handler = MyHandler(transport)
     dispatcher = ClientDispatcher(handler)
-    
-    try:
-        while True:
-            data = await ws.receive_text()
-            await dispatcher(data)
-    except WebSocketDisconnect:
-        print("Client disconnected")
-```
 
-4. Run:
-
-```bash
-uvicorn main:app --reload
+    # When you receive data (str/bytes/dict):
+    await dispatcher(incoming_data)
 ```
 
 ### JavaScript Client
 
-The `webclient/` folder contains a ready-to-use client:
+The JS client is transport-agnostic—pass any transport with `send()` and `onMessage()`:
 
-- **`client.js`**: Generated SDK with typed methods
-- **`main.js`**: Your application logic (edit this!)
-- **`index.html`**: Entry point
+```javascript
+import { Client, Events, createWebSocketTransport } from './client.js';
+
+// WebSocket example
+const ws = new WebSocket('ws://localhost:8000/ws');
+const transport = createWebSocketTransport(ws);
+const client = new Client(transport);
+
+// Listen for events
+client.on(Events.Chat.MESSAGE_RECEIVED, (msg) => {
+    console.log(`${msg.sender}: ${msg.content}`);
+});
+
+// Send events
+ws.onopen = () => {
+    client.sendChatJoinRoom('general');
+};
+```
+
+Works with any JSON transport (message queues, postMessage, etc.):
 
 
 
-1. **Design** your protocol in the visual builder
+1. **Design** your protocol in the visual builder (or build your own YAML)
 2. **Generate** starter code once
 3. **Edit** the generated code directly—it's now your code
 4. **Build** your application
@@ -128,4 +127,4 @@ The `webclient/` folder contains a ready-to-use client:
 ## Requirements
 
 - Python 3.8+
-- `fastapi`, `uvicorn`, `pydantic`, `pyyaml`, `websockets`
+`pydantic`, `pyyaml`

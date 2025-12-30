@@ -1,5 +1,5 @@
 """
-wsprot - Schema-first WebSocket protocol code generator for Python.
+wsprot - Schema-first Event Protocol code generator for Python.
 
 Generate typed Pydantic v2 models, discriminated unions, and decorator-based
 event handlers from declarative protocol definitions.

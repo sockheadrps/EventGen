@@ -1,7 +1,7 @@
 """
-Core schema representation for WebSocket protocol definitions.
+Core schema representation for Event protocol definitions.
 
-This module provides the building blocks for defining typed WebSocket events:
+This module provides the building blocks for definition typed events:
 - Field: A single field in an event payload
 - Event: A complete event with name, direction, and payload schema
 - Protocol: A collection of events forming a complete protocol
@@ -87,7 +87,8 @@ class Field:
 @dataclass
 class Event:
     """
-    A WebSocket event definition.
+    An Event definition.
+
 
     Attributes:
         name: Event type name (used as discriminator value)
@@ -128,7 +129,7 @@ class Event:
 @dataclass
 class Protocol:
     """
-    A complete WebSocket protocol definition.
+    A complete Event protocol definition.
 
     Attributes:
         name: Protocol name (used for generated module/class names)
