@@ -1,10 +1,10 @@
-# wsprot
+![Video Title](demo_preview.gif)
 
 API design can be difficult, but intentionally defining a clear and complete representation of an Event Driven Architecture prior to beginning implementation—when possible—has very clear benefits. Having definition organization and feature completeness at least defined allows the focus to shift from communication complexity to solving logical problems or implementing features.
 
 This tool provides a way to define events and fields, along with a type interface for field types. Protocols designed in the GUI can output YAML, and you can also populate the protocol in the GUI by loading your own  YAML. This tool is for generating type-safe Event Driven Python code and JavaScript as a module with identical type representations built from a single source of defined types.
 
-![Video Title](demo_small.mp4)
+
 
 
 ## Quick Start
@@ -109,47 +109,6 @@ async def websocket_endpoint(ws: WebSocket):
 uvicorn main:app --reload
 ```
 
-### Python Client
-
-1. Copy the `client/` folder into your project.
-2. **Edit `handlers.py` directly**:
-
-```python
-# client/handlers.py
-from .models import MessageReceived, Events
-from .events import on_event
-
-class ChatClientHandler:
-    @on_event(Events.Chat.MESSAGE_RECEIVED)
-    async def chat_message_received(self, msg: MessageReceived):
-        print(f"Server says: {msg.content}")
-```
-
-3. Use it:
-
-```python
-# main.py
-import asyncio
-import websockets
-from client.handlers import ChatClientHandler
-from client.events import ServerDispatcher
-from client.models import JoinRoom
-
-async def main():
-    async with websockets.connect("ws://127.0.0.1:8000/ws") as ws:
-        handler = ChatClientHandler()
-        dispatcher = ServerDispatcher(handler)
-        
-        # Send a message
-        await ws.send(JoinRoom(room_id="general").model_dump_json())
-        
-        # Handle responses
-        async for msg in ws:
-            await dispatcher(msg)
-
-asyncio.run(main())
-```
-
 ### JavaScript Client
 
 The `webclient/` folder contains a ready-to-use client:
@@ -158,18 +117,13 @@ The `webclient/` folder contains a ready-to-use client:
 - **`main.js`**: Your application logic (edit this!)
 - **`index.html`**: Entry point
 
----
 
-## Philosophy
-
-wsprot is a **scaffolding tool**, not a continuous code generator.
 
 1. **Design** your protocol in the visual builder
 2. **Generate** starter code once
 3. **Edit** the generated code directly—it's now your code
 4. **Build** your application
 
-No subclassing required. No regeneration workflow. Just clean starter code you own.
 
 ## Requirements
 
